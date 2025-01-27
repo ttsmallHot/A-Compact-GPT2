@@ -36,11 +36,11 @@ from gpt_architecture import GPTModel
 DATA_PREFIX = "data/"
 RESULT_PREFIX = "result/"
 
+# 这个整体和前面的GPTDataSet大差不差
 class InstructionDataset(Dataset):
     def __init__(self, data, tokenizer):
         self.data = data
 
-        # Pre-tokenize texts
         self.encoded_texts = []
         for entry in data:
             instruction_plus_input = format_input(entry)
@@ -57,6 +57,7 @@ class InstructionDataset(Dataset):
         return len(self.data)
 
 
+# 函数目的是填充不同长度的微调数据
 def custom_collate_fn(
     batch,
     pad_token_id=50256,
@@ -64,28 +65,25 @@ def custom_collate_fn(
     allowed_max_length=None,
     device="cpu"
 ):
-    # Find the longest sequence in the batch
+    # 找微调数据里最长的长度
     batch_max_length = max(len(item)+1 for item in batch)
-
-    # Pad and prepare inputs and targets
     inputs_lst, targets_lst = [], []
 
     for item in batch:
         new_item = item.copy()
-        # Add an <|endoftext|> token
+        # 加一个 <|endoftext|> token作为结尾标识符，target等下都会换成ignore_index
         new_item += [pad_token_id]
-        # Pad sequences to max_length
         padded = new_item + [pad_token_id] * (batch_max_length - len(new_item))
-        inputs = torch.tensor(padded[:-1])  # Truncate the last token for inputs
-        targets = torch.tensor(padded[1:])  # Shift +1 to the right for targets
+        inputs = torch.tensor(padded[:-1])
+        targets = torch.tensor(padded[1:])
 
-        # New: Replace all but the first padding tokens in targets by ignore_index
+        # 把taget里面的换成ignore_index
+        # 防止这个填充的注意力分数影响结果
         mask = targets == pad_token_id
         indices = torch.nonzero(mask).squeeze()
         if indices.numel() > 1:
             targets[indices[1:]] = ignore_index
 
-        # New: Optionally truncate to maximum sequence length
         if allowed_max_length is not None:
             inputs = inputs[:allowed_max_length]
             targets = targets[:allowed_max_length]
@@ -93,7 +91,6 @@ def custom_collate_fn(
         inputs_lst.append(inputs)
         targets_lst.append(targets)
 
-    # Convert list of inputs and targets to tensors and transfer to target device
     inputs_tensor = torch.stack(inputs_lst).to(device)
     targets_tensor = torch.stack(targets_lst).to(device)
 
@@ -128,7 +125,7 @@ def format_input(entry):
 
     return instruction_text + input_text
 
-
+# 此函数为原书函数
 def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
     fig, ax1 = plt.subplots(figsize=(12, 6))
 
@@ -152,30 +149,25 @@ def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
 
 
 def main(test_mode=False):
-    #######################################
-    # Print package versions
-    #######################################
     print()
     pkgs = [
-        "matplotlib",  # Plotting library
-        "tiktoken",    # Tokenizer
-        "torch",       # Deep learning library
-        "tqdm",        # Progress bar
-        "tensorflow",  # For OpenAI's pretrained weights
+        "matplotlib",
+        "tiktoken",
+        "torch",
+        "tqdm",
+        "tensorflow",
     ]
     for p in pkgs:
         print(f"{p} version: {version(p)}")
     print(50*"-")
 
-    #######################################
-    # Download and prepare dataset
-    #######################################
+    # 下载并准备数据集
     file_path = DATA_PREFIX + "instruction-data.json"
     url = "https://raw.githubusercontent.com/rasbt/LLMs-from-scratch/main/ch07/01_main-chapter-code/instruction-data.json"
     data = download_and_load_file(file_path, url)
 
-    train_portion = int(len(data) * 0.85)  # 85% for training
-    test_portion = int(len(data) * 0.1)    # 10% for testing
+    train_portion = int(len(data) * 0.85)
+    test_portion = int(len(data) * 0.1)
 
     train_data = data[:train_portion]
     test_data = data[train_portion:train_portion + test_portion]
@@ -225,11 +217,9 @@ def main(test_mode=False):
         num_workers=num_workers
     )
 
-    #######################################
-    # Load pretrained model
-    #######################################
 
-    # Small GPT model for testing purposes
+    # 这里testmode只是一个小gpt，并且数据量等下也很小
+    # 否则的话就是gpt2-medium (355M)
     if args.test_mode:
         BASE_CONFIG = {
             "vocab_size": 50257,
@@ -245,13 +235,12 @@ def main(test_mode=False):
         device = "cpu"
         CHOOSE_MODEL = "Small test model"
 
-    # Code as it is used in the main chapter
     else:
         BASE_CONFIG = {
-            "vocab_size": 50257,     # Vocabulary size
-            "context_length": 1024,  # Context length
-            "drop_rate": 0.0,        # Dropout rate
-            "qkv_bias": True         # Query-key-value bias
+            "vocab_size": 50257,
+            "context_length": 1024,
+            "drop_rate": 0.0,
+            "qkv_bias": True
         }
 
         model_configs = {
@@ -276,9 +265,6 @@ def main(test_mode=False):
     print("Loaded model:", CHOOSE_MODEL)
     print(50*"-")
 
-    #######################################
-    # Finetuning the model
-    #######################################
     print("Initial losses")
     with torch.no_grad():
         train_loss = calc_loss_loader(train_loader, model, device, num_batches=5)
@@ -307,9 +293,6 @@ def main(test_mode=False):
     plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses)
     print(50*"-")
 
-    #######################################
-    # Saving results
-    #######################################
     print("Generating responses")
     for i, entry in tqdm(enumerate(test_data), total=len(test_data)):
 

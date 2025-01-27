@@ -28,10 +28,10 @@ if __name__ == "__main__":
     print("Device:", device)
 
     BASE_CONFIG = {
-        "vocab_size": 50257,  # Vocabulary size
-        "context_length": 1024,  # Context length
-        "drop_rate": 0.0,  # Dropout rate
-        "qkv_bias": True  # Query-key-value bias
+        "vocab_size": 50257,  # 字典大小
+        "context_length": 1024,  # 长度
+        "drop_rate": 0.0,  # Dropout 比例
+        "qkv_bias": True  # Query-key-value 偏差
     }
 
     model_configs = {
@@ -46,6 +46,7 @@ if __name__ == "__main__":
     BASE_CONFIG.update(model_configs[CHOOSE_MODEL])
 
     model = GPTModel(BASE_CONFIG)
+
     # 这里应该改成你要使用的模型
     model.load_state_dict(torch.load(RESULT_PREFIX + "gpt2-medium355M-sft-standalone.pth", weights_only=True))
     model.eval()

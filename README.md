@@ -22,13 +22,13 @@ python gpt_pretrain.py
 - For better final results, we use gpt2 to pretrain weights and then fine tune them instead of the weights we previously trained
 - please run the following shell for test fine-tune
 
-```
+```shell
 python gpt_instruction_finetuning.py --test_mode
 ```
 
 - please run the following shell for fine-tune
 
-```
+```shell
 python gpt_instruction_finetuning.py
 ```
 
@@ -36,7 +36,7 @@ python gpt_instruction_finetuning.py
 
 - you can chat with your fine tuned model by following shell
 
-```
+```shell
 python play.py
 ```
 
